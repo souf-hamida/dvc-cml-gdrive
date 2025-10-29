@@ -30,25 +30,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install "dvc[gdrive]==3.63.0"
-          # pip install cml  # seulement si pas déjà dans requirements.txt
+          # pip install cml  # si pas déjà dans requirements.txt
 
       - name: Configure DVC remote for Google Drive (OAuth user creds)
         run: |
-          # 1. Recréer les identifiants OAuth utilisateur (ton premier JSON avec refresh_token)
           echo '${{ secrets.GDRIVE_CREDENTIALS_JSON }}' > gdrive_user_credentials.json
-
-          # 2. Lier ces identifiants au remote DVC (REMOTE = new_gdrive)
           dvc remote modify --local new_gdrive gdrive_user_credentials_file gdrive_user_credentials.json
-
-          # 3. Injecter client_id / client_secret depuis les secrets GitHub
           dvc remote modify --local new_gdrive gdrive_client_id "${{ secrets.GDRIVE_CLIENT_ID }}"
           dvc remote modify --local new_gdrive gdrive_client_secret "${{ secrets.GDRIVE_CLIENT_SECRET }}"
-
-          echo "=== dvc remote list (global)==="
-          dvc remote list
-
-          echo "=== dvc remote list --local (runner)==="
-          dvc remote list --local
 
       - name: Pull data & models from DVC remote
         run: |
@@ -57,15 +46,12 @@ jobs:
       - name: Train / Evaluate model(s)
         run: |
           python script.py
-          # adapte ce script si besoin pour générer metrics.txt, conf_matrix.png, etc.
 
       - name: Track new artifacts with DVC
         run: |
           dvc add data/ models/
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add data.dvc models.dvc
           git commit -m "Update DVC artifacts [skip ci]" || echo "Nothing to commit"
 
@@ -77,8 +63,6 @@ jobs:
         run: |
           echo "## Metrics" > report.md
           awk 'NR%4{print "    " $0}{print ""}' metrics.txt >> report.md
-
           echo "## Confusion Matrix" >> report.md
           echo "![](./conf_matrix.png)" >> report.md
-
           cml comment create report.md
